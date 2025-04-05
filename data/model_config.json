@@ -1,0 +1,41 @@
+{
+    "model_name": "tiny-transformer",
+    "model_type": "transformer",
+    "model_version": "0.1.0",
+    "architecture": {
+        "hidden_size": 128,
+        "num_layers": 4,
+        "num_heads": 4,
+        "ffn_dim": 512,
+        "context_size": 512,
+        "vocab_size": 5000
+    },
+    "quantization": {
+        "weight_bits": 4,
+        "activation_bits": 8,
+        "use_lookup_tables": true
+    },
+    "tokenizer": {
+        "vocab_file": "data/tiny_vocab.tok",
+        "max_token_length": 16,
+        "special_tokens": {
+            "bos": "<s>",
+            "eos": "</s>",
+            "unk": "<unk>",
+            "pad": "<pad>"
+        }
+    },
+    "generation": {
+        "default_max_tokens": 50,
+        "default_temperature": 0.7,
+        "default_top_k": 40,
+        "default_top_p": 0.9,
+        "default_sampling_method": "top_k"
+    },
+    "hybrid": {
+        "execution_preference": "prefer_local",
+        "remote_threshold_tokens": 200,
+        "context_threshold_ratio": 0.8,
+        "fallback_enabled": true
+    }
+}

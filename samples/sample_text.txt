@@ -1,0 +1,7 @@
+TinyAI is an extremely memory-efficient AI framework designed to run on minimal hardware, including legacy systems. It uses 4-bit quantization for neural network weights, allowing models to run in as little as 50-100MB of RAM.
+
+The quick brown fox jumps over the lazy dog. Hello world! How are you today?
+
+TinyAI supports both RNN and Transformer architectures, with features for flexible text generation including multiple sampling methods like greedy, top-k, top-p, and temperature sampling.
+
+This is a simple test corpus for minimal BPE tokenization. It contains simple words and phrases to test the tokenizer and text generation capabilities.

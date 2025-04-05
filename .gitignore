@@ -1,0 +1,112 @@
+# Build directories
+build/
+out/
+bin/
+lib/
+vs2022/
+Debug/
+Release/
+x64/
+Win32/
+ARM/
+ARM64/
+
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+CMakeScripts/
+cmake_install.cmake
+cmake_uninstall.cmake
+CPackConfig.cmake
+CPackSourceConfig.cmake
+CTestTestfile.cmake
+install_manifest.txt
+compile_commands.json
+_deps/
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Visual Studio files
+*.sdf
+*.opensdf
+*.suo
+*.user
+*.vcxproj.filters
+*.vcproj.*.user
+*.vcxproj.user
+*.aps
+*.pdb
+*.ilk
+*.idb
+*.ipdb
+*.iobj
+*.lastbuildstate
+*.tlog
+*.log
+*.ipch
+*.db
+*.opendb
+*.exp
+.vs/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# Node.js (for the web server components if any)
+node_modules/
+package-lock.json
+
+# Python (for any scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Keep model files unless they're very large (>100MB)
+# If your model files are large, consider git LFS
+# !data/*.tmai

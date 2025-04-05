@@ -1,0 +1,21 @@
+TinyAI is a lightweight neural network framework designed to run efficiently on resource-constrained devices. It features 4-bit weight quantization to minimize memory usage while maintaining good accuracy.
+
+Key features of TinyAI include:
+
+1. Memory Efficiency: Uses 4-bit quantization for neural network weights, reducing memory footprint by up to 8x compared to full precision.
+
+2. Low Latency: Optimized for fast inference on CPUs, especially on embedded and mobile devices.
+
+3. Cross-Platform: Designed to work across various platforms with minimal dependencies.
+
+4. Multiple Model Support: Includes implementations for text generation, image recognition, and hybrid AI capabilities.
+
+5. SIMD Acceleration: Utilizes SIMD instructions when available for improved performance.
+
+The tokenizer component is responsible for converting text into token IDs and back. It supports various tokenization strategies, including character-level, word-level, and subword-level approaches. The efficient implementation ensures fast processing of text data during both training and inference phases.
+
+The quantization utilities convert full-precision (FP32) model weights to 4-bit representation, with support for multiple quantization schemes including linear quantization and non-uniform quantization. This allows models to run efficiently on devices with limited memory and computational resources.
+
+Model weights can be stored and loaded in a custom binary format that preserves the quantized representation, eliminating the need for re-quantization during model loading. This further improves startup performance for applications using TinyAI.
+
+TinyAI is designed with a modular architecture that allows for easy extension and customization. New model architectures, tokenization strategies, and quantization schemes can be added with minimal changes to the core framework.
