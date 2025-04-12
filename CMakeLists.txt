@@ -38,6 +38,7 @@ endif()
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party
+    ${CMAKE_CURRENT_SOURCE_DIR}/vendor # Add vendor directory
 )
 
 # Collect source files
@@ -46,7 +47,8 @@ file(GLOB_RECURSE TINYAI_UTILS_SOURCES "utils/*.c")
 file(GLOB_RECURSE TINYAI_MODELS_SOURCES "models/*.c")
 # Explicitly list interface sources for the main executable (excluding interface/main.c)
 set(TINYAI_MAIN_INTERFACE_SOURCES
-    interface/cli.c 
+    interface/cli.c
+    interface/web_server.c  # Web server interface
     # Add other interface files here if needed for tinyai.exe
 )
 
@@ -64,11 +66,17 @@ add_executable(tinyai
     ${TINYAI_UTILS_SOURCES}
     ${TINYAI_MODELS_SOURCES}
     ${TINYAI_MAIN_INTERFACE_SOURCES} # Use the explicit list
+    vendor/mongoose/mongoose.c # Add Mongoose source
 )
 
 # Check if math library is needed (Unix/Linux)
 if(UNIX)
-    target_link_libraries(tinyai m)
+    target_link_libraries(tinyai PRIVATE m)
+endif()
+
+# Link network library if needed (e.g., for Mongoose)
+if(WIN32)
+    target_link_libraries(tinyai PRIVATE ws2_32)
 endif()
 
 # Create install rules
@@ -237,6 +245,23 @@ endif()
 
 # Add a specific test for memory-mapped model loading and forward scheduling
 add_test(NAME MemoryMappedModelTest COMMAND mmap_loader_test)
+
+# Out-of-memory handling test executable
+add_executable(oom_handling_test
+    tests/test_oom_handling.c
+    utils/memory_pool.c
+    utils/mmap_loader.c
+    utils/forward_scheduler.c
+    ${TINYAI_UTILS_SOURCES}
+)
+
+# Link math library for OOM test if needed
+if(UNIX)
+    target_link_libraries(oom_handling_test m)
+endif()
+
+# Add a specific test for out-of-memory handling
+add_test(NAME OutOfMemoryHandlingTest COMMAND oom_handling_test)
 
 # Add examples
 add_subdirectory(examples)
