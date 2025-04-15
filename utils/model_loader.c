@@ -7,6 +7,12 @@
 #include "../core/memory.h"
 #include "../models/image/image_model.h"
 #include "quantize.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* Forward declaration for types from image_model.h */
+typedef struct TinyAIImagePreprocessParams TinyAIImagePreprocessParams;
 
 /* This struct declaration is matching the internal struct from image_model.c */
 typedef struct Layer {
@@ -33,35 +39,6 @@ typedef struct Layer {
     size_t biasBytes;   /* Size of biases in bytes */
     size_t outputBytes; /* Size of output in bytes */
 } Layer;
-
-/* This struct declaration is matching the internal struct from image_model.c */
-struct TinyAIImageModel {
-    int modelType;
-    int inputWidth;
-    int inputHeight;
-    int inputChannels;
-    int numClasses;
-
-    /* Layers */
-    Layer layers[50]; /* Assuming MAX_LAYERS = 50 */
-    int   numLayers;
-
-    /* Memory */
-    void *memoryPool;
-    bool  useExternalMemory;
-    bool  useSIMD;
-    bool  useQuantization;
-
-    /* Labels */
-    char **labels;
-    int    numLabels;
-
-    /* Preprocessing parameters */
-    TinyAIImagePreprocessParams preprocess;
-};
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 /**
  * Header for TinyAI model weight files
@@ -93,6 +70,24 @@ typedef struct {
     uint32_t biasSize;     /* Size of bias blob in bytes */
 } TinyAILayerInfo;
 
+/* External functions from image_model.c that we need */
+extern int   tinyaiGetImageModelType(const TinyAIImageModel *model);
+extern int   tinyaiGetImageModelInputWidth(const TinyAIImageModel *model);
+extern int   tinyaiGetImageModelInputHeight(const TinyAIImageModel *model);
+extern int   tinyaiGetImageModelInputChannels(const TinyAIImageModel *model);
+extern int   tinyaiGetImageModelNumClasses(const TinyAIImageModel *model);
+extern int   tinyaiGetImageModelNumLayers(const TinyAIImageModel *model);
+extern bool  tinyaiIsImageModelQuantized(const TinyAIImageModel *model);
+extern void *tinyaiGetImageModelMemoryPool(const TinyAIImageModel *model);
+extern bool  tinyaiGetImageModelUseSIMD(const TinyAIImageModel *model);
+extern bool  tinyaiGetLayerInfo(const TinyAIImageModel *model, int layerIdx, Layer *layer);
+extern bool  tinyaiSetLayerWeights(TinyAIImageModel *model, int layerIdx, void *weights,
+                                   size_t weightsSize);
+extern bool  tinyaiSetLayerBiases(TinyAIImageModel *model, int layerIdx, float *biases,
+                                  size_t biasSize);
+extern bool  tinyaiSetLayerScales(TinyAIImageModel *model, int layerIdx, float *scales,
+                                  size_t scaleSize);
+
 /**
  * Validate if a model is compatible with weight file
  * @param model The model to validate
@@ -106,22 +101,25 @@ static bool validateModelCompatibility(TinyAIImageModel *model, const TinyAIMode
     }
 
     /* Check basic compatibility */
-    if (model->modelType != header->modelType) {
-        fprintf(stderr, "Model type mismatch: %d vs %d\n", model->modelType, header->modelType);
+    if (tinyaiGetImageModelType(model) != header->modelType) {
+        fprintf(stderr, "Model type mismatch: %d vs %d\n", tinyaiGetImageModelType(model),
+                header->modelType);
         return false;
     }
 
-    if (model->inputWidth != header->inputWidth || model->inputHeight != header->inputHeight ||
-        model->inputChannels != header->channels) {
-        fprintf(stderr, "Input dimensions mismatch: %dx%dx%d vs %dx%dx%d\n", model->inputWidth,
-                model->inputHeight, model->inputChannels, header->inputWidth, header->inputHeight,
+    if (tinyaiGetImageModelInputWidth(model) != header->inputWidth ||
+        tinyaiGetImageModelInputHeight(model) != header->inputHeight ||
+        tinyaiGetImageModelInputChannels(model) != header->channels) {
+        fprintf(stderr, "Input dimensions mismatch: %dx%dx%d vs %dx%dx%d\n",
+                tinyaiGetImageModelInputWidth(model), tinyaiGetImageModelInputHeight(model),
+                tinyaiGetImageModelInputChannels(model), header->inputWidth, header->inputHeight,
                 header->channels);
         return false;
     }
 
-    if (model->numClasses != header->numClasses) {
-        fprintf(stderr, "Number of classes mismatch: %d vs %d\n", model->numClasses,
-                header->numClasses);
+    if (tinyaiGetImageModelNumClasses(model) != header->numClasses) {
+        fprintf(stderr, "Number of classes mismatch: %d vs %d\n",
+                tinyaiGetImageModelNumClasses(model), header->numClasses);
         return false;
     }
 
@@ -171,7 +169,7 @@ bool tinyaiLoadModelWeights(TinyAIImageModel *model, const char *filepath, bool 
     }
 
     /* Check if we need to convert precision */
-    bool needsConversion = (model->useQuantization != (header.quantized == 1));
+    bool needsConversion = (tinyaiIsImageModelQuantized(model) != (header.quantized == 1));
     if (needsConversion && !convertPrecision) {
         fprintf(stderr, "Precision mismatch and conversion not allowed\n");
         fclose(file);
@@ -196,43 +194,33 @@ bool tinyaiLoadModelWeights(TinyAIImageModel *model, const char *filepath, bool 
 
         /* Find matching layer in the model */
         bool layerFound = false;
-        for (int j = 0; j < model->numLayers; j++) {
-            Layer *layer = &model->layers[j];
+        int  numLayers  = tinyaiGetImageModelNumLayers(model);
+
+        for (int j = 0; j < numLayers; j++) {
+            Layer layer;
+            if (!tinyaiGetLayerInfo(model, j, &layer)) {
+                continue;
+            }
 
             /* Check if layer dimensions match */
-            if (layer->type == layerInfo.layerType && layer->inputWidth == layerInfo.inputDim[0] &&
-                layer->inputHeight == layerInfo.inputDim[1] &&
-                layer->inputChannels == layerInfo.inputDim[2] &&
-                layer->outputWidth == layerInfo.outputDim[0] &&
-                layer->outputHeight == layerInfo.outputDim[1] &&
-                layer->outputChannels == layerInfo.outputDim[2]) {
+            if (layer.type == layerInfo.layerType && layer.inputWidth == layerInfo.inputDim[0] &&
+                layer.inputHeight == layerInfo.inputDim[1] &&
+                layer.inputChannels == layerInfo.inputDim[2] &&
+                layer.outputWidth == layerInfo.outputDim[0] &&
+                layer.outputHeight == layerInfo.outputDim[1] &&
+                layer.outputChannels == layerInfo.outputDim[2]) {
 
                 /* We found a matching layer */
                 layerFound = true;
 
                 /* Handle weights */
                 if (layerInfo.weightsSize > 0) {
-                    /* Allocate memory for weights if needed */
-                    if (!layer->weights) {
-                        if (model->useQuantization) {
-                            layer->weights = (uint8_t *)tinyaiMemoryPoolAllocWeights(
-                                model->memoryPool, layer->weightBytes, model->useSIMD);
-                        }
-                        else {
-                            layer->weights = (uint8_t *)tinyaiMemoryPoolAllocWeights(
-                                model->memoryPool, layerInfo.weightsSize, model->useSIMD);
-                        }
-
-                        if (!layer->weights) {
-                            fprintf(stderr, "Failed to allocate weights for layer %d\n", i);
-                            fclose(file);
-                            return false;
-                        }
-                    }
+                    void *memoryPool = tinyaiGetImageModelMemoryPool(model);
+                    bool  useSIMD    = tinyaiGetImageModelUseSIMD(model);
 
                     if (needsConversion) {
                         /* Need to convert between quantized and full precision */
-                        if (model->useQuantization) {
+                        if (tinyaiIsImageModelQuantized(model)) {
                             /* Convert from full precision to 4-bit */
                             float *tempWeights = (float *)malloc(layerInfo.weightsSize);
                             if (!tempWeights) {
@@ -251,10 +239,19 @@ bool tinyaiLoadModelWeights(TinyAIImageModel *model, const char *filepath, bool 
                             }
 
                             /* Quantize to 4-bit */
-                            size_t numWeights = layerInfo.weightsSize / sizeof(float);
-                            tinyaiQuantizeWeights(tempWeights, (uint8_t *)layer->weights,
-                                                  numWeights);
+                            size_t   numWeights       = layerInfo.weightsSize / sizeof(float);
+                            uint8_t *quantizedWeights = (uint8_t *)malloc((numWeights + 1) / 2);
+                            if (!quantizedWeights) {
+                                fprintf(stderr, "Failed to allocate quantized weights\n");
+                                free(tempWeights);
+                                fclose(file);
+                                return false;
+                            }
 
+                            tinyaiQuantizeWeights(tempWeights, quantizedWeights, numWeights);
+                            tinyaiSetLayerWeights(model, j, quantizedWeights, (numWeights + 1) / 2);
+
+                            free(quantizedWeights);
                             free(tempWeights);
                         }
                         else {
@@ -278,43 +275,65 @@ bool tinyaiLoadModelWeights(TinyAIImageModel *model, const char *filepath, bool 
                             /* Dequantize to float */
                             size_t numWeights =
                                 layerInfo.weightsSize * 2; /* 4-bit: 2 weights per byte */
-                            tinyaiDequantizeWeights(tempWeights, (float *)layer->weights,
-                                                    numWeights);
+                            float *dequantizedWeights = (float *)malloc(numWeights * sizeof(float));
+                            if (!dequantizedWeights) {
+                                fprintf(stderr, "Failed to allocate dequantized weights\n");
+                                free(tempWeights);
+                                fclose(file);
+                                return false;
+                            }
 
+                            tinyaiDequantizeWeights(tempWeights, dequantizedWeights, numWeights);
+                            tinyaiSetLayerWeights(model, j, dequantizedWeights,
+                                                  numWeights * sizeof(float));
+
+                            free(dequantizedWeights);
                             free(tempWeights);
                         }
                     }
                     else {
                         /* No conversion needed, just read the weights directly */
-                        if (fread(layer->weights, 1, layerInfo.weightsSize, file) !=
-                            layerInfo.weightsSize) {
-                            fprintf(stderr, "Failed to read weights for layer %d\n", i);
+                        void *weights = malloc(layerInfo.weightsSize);
+                        if (!weights) {
+                            fprintf(stderr, "Failed to allocate weights memory\n");
                             fclose(file);
                             return false;
                         }
+
+                        if (fread(weights, 1, layerInfo.weightsSize, file) !=
+                            layerInfo.weightsSize) {
+                            fprintf(stderr, "Failed to read weights for layer %d\n", i);
+                            free(weights);
+                            fclose(file);
+                            return false;
+                        }
+
+                        /* Set weights into the model */
+                        tinyaiSetLayerWeights(model, j, weights, layerInfo.weightsSize);
+                        free(weights);
                     }
                 }
 
                 /* Handle biases */
                 if (layerInfo.biasSize > 0) {
-                    /* Allocate memory for biases if needed */
-                    if (!layer->biases) {
-                        layer->biases = (float *)tinyaiMemoryPoolAllocWeights(
-                            model->memoryPool, layerInfo.biasSize, model->useSIMD);
-
-                        if (!layer->biases) {
-                            fprintf(stderr, "Failed to allocate biases for layer %d\n", i);
-                            fclose(file);
-                            return false;
-                        }
-                    }
-
-                    /* Read biases (always in full precision) */
-                    if (fread(layer->biases, 1, layerInfo.biasSize, file) != layerInfo.biasSize) {
-                        fprintf(stderr, "Failed to read biases for layer %d\n", i);
+                    float *biases = (float *)malloc(layerInfo.biasSize);
+                    if (!biases) {
+                        fprintf(stderr, "Failed to allocate biases memory\n");
                         fclose(file);
                         return false;
                     }
+
+                    /* Read biases (always in full precision) */
+                    if (fread(biases, 1, layerInfo.biasSize, file) != layerInfo.biasSize) {
+                        fprintf(stderr, "Failed to read biases for layer %d\n", i);
+                        free(biases);
+                        fclose(file);
+                        return false;
+                    }
+
+                    /* Set biases into the model */
+                    tinyaiSetLayerBiases(model, j, biases, layerInfo.biasSize);
+                    free(biases);
                 }
 
                 break; /* Found and processed the layer, move to next */
@@ -359,13 +378,13 @@ bool tinyaiSaveModelWeights(TinyAIImageModel *model, const char *filepath)
     header.version = 1;
 
     /* Set model info */
-    header.modelType   = model->modelType;
-    header.inputWidth  = model->inputWidth;
-    header.inputHeight = model->inputHeight;
-    header.channels    = model->inputChannels;
-    header.numLayers   = model->numLayers;
-    header.numClasses  = model->numClasses;
-    header.quantized   = model->useQuantization ? 1 : 0;
+    header.modelType   = tinyaiGetImageModelType(model);
+    header.inputWidth  = tinyaiGetImageModelInputWidth(model);
+    header.inputHeight = tinyaiGetImageModelInputHeight(model);
+    header.channels    = tinyaiGetImageModelInputChannels(model);
+    header.numLayers   = tinyaiGetImageModelNumLayers(model);
+    header.numClasses  = tinyaiGetImageModelNumClasses(model);
+    header.quantized   = tinyaiIsImageModelQuantized(model) ? 1 : 0;
 
     /* Write header */
     if (fwrite(&header, sizeof(header), 1, file) != 1) {
@@ -375,25 +394,31 @@ bool tinyaiSaveModelWeights(TinyAIImageModel *model, const char *filepath)
     }
 
     /* Write each layer */
-    for (int i = 0; i < model->numLayers; i++) {
-        Layer *layer = &model->layers[i];
+    int numLayers = tinyaiGetImageModelNumLayers(model);
+    for (int i = 0; i < numLayers; i++) {
+        Layer layer;
+        if (!tinyaiGetLayerInfo(model, i, &layer)) {
+            fprintf(stderr, "Failed to get layer info for layer %d\n", i);
+            fclose(file);
+            return false;
+        }
 
         /* Prepare layer info */
         TinyAILayerInfo layerInfo;
         memset(&layerInfo, 0, sizeof(layerInfo));
 
-        layerInfo.layerType    = layer->type;
-        layerInfo.inputDim[0]  = layer->inputWidth;
-        layerInfo.inputDim[1]  = layer->inputHeight;
-        layerInfo.inputDim[2]  = layer->inputChannels;
-        layerInfo.outputDim[0] = layer->outputWidth;
-        layerInfo.outputDim[1] = layer->outputHeight;
-        layerInfo.outputDim[2] = layer->outputChannels;
-        layerInfo.kernelSize   = layer->kernelSize;
-        layerInfo.stride       = layer->stride;
-        layerInfo.padding      = layer->padding;
-        layerInfo.weightsSize  = layer->weightBytes;
-        layerInfo.biasSize     = layer->biasBytes;
+        layerInfo.layerType    = layer.type;
+        layerInfo.inputDim[0]  = layer.inputWidth;
+        layerInfo.inputDim[1]  = layer.inputHeight;
+        layerInfo.inputDim[2]  = layer.inputChannels;
+        layerInfo.outputDim[0] = layer.outputWidth;
+        layerInfo.outputDim[1] = layer.outputHeight;
+        layerInfo.outputDim[2] = layer.outputChannels;
+        layerInfo.kernelSize   = layer.kernelSize;
+        layerInfo.stride       = layer.stride;
+        layerInfo.padding      = layer.padding;
+        layerInfo.weightsSize  = layer.weightBytes;
+        layerInfo.biasSize     = layer.biasBytes;
 
         /* Write layer info */
         if (fwrite(&layerInfo, sizeof(layerInfo), 1, file) != 1) {
@@ -403,8 +428,8 @@ bool tinyaiSaveModelWeights(TinyAIImageModel *model, const char *filepath)
         }
 
         /* Write weights if present */
-        if (layer->weights && layer->weightBytes > 0) {
-            if (fwrite(layer->weights, 1, layer->weightBytes, file) != layer->weightBytes) {
+        if (layer.weights && layer.weightBytes > 0) {
+            if (fwrite(layer.weights, 1, layer.weightBytes, file) != layer.weightBytes) {
                 fprintf(stderr, "Failed to write weights for layer %d\n", i);
                 fclose(file);
                 return false;
@@ -412,8 +437,8 @@ bool tinyaiSaveModelWeights(TinyAIImageModel *model, const char *filepath)
         }
 
         /* Write biases if present */
-        if (layer->biases && layer->biasBytes > 0) {
-            if (fwrite(layer->biases, 1, layer->biasBytes, file) != layer->biasBytes) {
+        if (layer.biases && layer.biasBytes > 0) {
+            if (fwrite(layer.biases, 1, layer.biasBytes, file) != layer.biasBytes) {
                 fprintf(stderr, "Failed to write biases for layer %d\n", i);
                 fclose(file);
                 return false;

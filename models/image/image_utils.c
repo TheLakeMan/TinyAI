@@ -3,7 +3,7 @@
  * @brief Image utility functions for TinyAI
  */
 
-#include "image_model.h"
+#include "image_utils.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
