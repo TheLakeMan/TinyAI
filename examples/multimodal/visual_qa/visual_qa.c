@@ -65,7 +65,7 @@ TinyAIVisualQA *tinyaiVisualQACreate(const TinyAIVisualQAConfig *config)
 
     /* Set custom template if provided */
     if (config->customTemplate) {
-        vqa->customTemplate = strdup(config->customTemplate);
+        vqa->customTemplate = _strdup(config->customTemplate);
     }
 
     /* Load tokenizer */
@@ -262,7 +262,7 @@ bool tinyaiVisualQASetStyle(TinyAIVisualQA *vqa, TinyAIAnswerStyle style,
 
         /* Set new custom template */
         if (customTemplate) {
-            vqa->customTemplate = strdup(customTemplate);
+            vqa->customTemplate = _strdup(customTemplate);
             if (!vqa->customTemplate) {
                 fprintf(stderr, "Failed to allocate memory for custom template\n");
                 return false;

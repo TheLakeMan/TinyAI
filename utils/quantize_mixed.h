@@ -10,6 +10,7 @@
 #ifndef TINYAI_QUANTIZE_MIXED_H
 #define TINYAI_QUANTIZE_MIXED_H
 
+#include "image_model.h"
 #include "quantize.h"
 #include <stdbool.h>
 #include <stddef.h>
@@ -23,20 +24,20 @@ extern "C" {
  * Supported quantization precisions
  */
 typedef enum {
-    TINYAI_PRECISION_FP32, /* Full precision floating point (32-bit) */
-    TINYAI_PRECISION_FP16, /* Half precision floating point (16-bit) */
-    TINYAI_PRECISION_INT8, /* 8-bit integer quantization */
-    TINYAI_PRECISION_INT4, /* 4-bit integer quantization */
-    TINYAI_PRECISION_INT2  /* 2-bit integer quantization */
-} TinyAIPrecisionType;
+    TINYAI_MIXED_PREC_FP32, /* Full precision floating point (32-bit) */
+    TINYAI_MIXED_PREC_FP16, /* Half precision floating point (16-bit) */
+    TINYAI_MIXED_PREC_INT8, /* 8-bit integer quantization */
+    TINYAI_MIXED_PREC_INT4, /* 4-bit integer quantization */
+    TINYAI_MIXED_PREC_INT2  /* 2-bit integer quantization */
+} TinyAIMixedPrecType;
 
 /**
  * Mixed precision quantization configuration for a layer
  */
 typedef struct {
-    TinyAIPrecisionType weightPrecision; /* Precision for weights */
-    TinyAIPrecisionType biasPrecision;   /* Precision for biases */
-    TinyAIPrecisionType activPrecision;  /* Precision for activations */
+    TinyAIMixedPrecType weightPrecision; /* Precision for weights */
+    TinyAIMixedPrecType biasPrecision;   /* Precision for biases */
+    TinyAIMixedPrecType activPrecision;  /* Precision for activations */
     float               weightThreshold; /* Per-layer weight clipping threshold */
     float               biasThreshold;   /* Per-layer bias clipping threshold */
     float               activThreshold;  /* Per-layer activation clipping threshold */
@@ -50,7 +51,7 @@ typedef struct {
     size_t              dataSize;  /* Size of data in bytes */
     int                 rows;      /* Number of rows */
     int                 cols;      /* Number of columns */
-    TinyAIPrecisionType precision; /* Precision of the data */
+    TinyAIMixedPrecType precision; /* Precision of the data */
     float               scale;     /* Scale factor for quantization */
     float               zeroPoint; /* Zero point for quantization */
 } TinyAIMixedPrecMatrix;
@@ -78,7 +79,7 @@ typedef struct {
  * @return Quantized mixed precision matrix (NULL on failure)
  */
 TinyAIMixedPrecMatrix *tinyaiCreateMixedPrecMatrix(const float *data, int rows, int cols,
-                                                   TinyAIPrecisionType precision, float threshold);
+                                                   TinyAIMixedPrecType precision, float threshold);
 
 /**
  * Free a mixed precision matrix
@@ -143,7 +144,7 @@ void tinyaiFreeMixedPrecConfig(TinyAIMixedPrecConfig *config);
  * @param precision Precision type
  * @return Size in bits (0 if invalid)
  */
-int tinyaiGetPrecisionBits(TinyAIPrecisionType precision);
+int tinyaiGetPrecisionBits(TinyAIMixedPrecType precision);
 
 /**
  * Calculate memory usage for a mixed precision matrix

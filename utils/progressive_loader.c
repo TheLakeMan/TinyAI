@@ -36,34 +36,49 @@ typedef struct {
  * Progressive loader structure
  */
 struct TinyAIProgressiveLoader {
-    TinyAIMappedModel            *mapped_model;      /* Underlying memory-mapped model */
-    bool                          owns_mapped_model; /* Whether we own the mapped model */
-    TinyAIProgressiveLoaderConfig config;            /* Configuration */
-    TinyAILayerInfo              *layers;            /* Array of layer information */
-    int                           layer_count;       /* Number of layers */
-    size_t                        current_memory;    /* Current memory usage */
-    size_t                        peak_memory;       /* Peak memory usage */
-    size_t                        total_model_size;  /* Total model size in bytes */
-    uint64_t                      access_counter;    /* Counter for tracking access order */
-    uint64_t                     *access_history;    /* Circular buffer of recent accesses */
-    int                           history_size;      /* Size of the access history buffer */
-    int                           history_pos;       /* Current position in history buffer */
-    bool                          track_usage;       /* Whether to track usage patterns */
-    clock_t                       last_timestamp;    /* Last operation timestamp */
+    TinyAIMappedModel            *mapped_model;        /* Underlying memory-mapped model */
+    bool                          owns_mapped_model;   /* Whether we own the mapped model */
+    TinyAIProgressiveLoaderConfig config;              /* Configuration */
+    TinyAILayerInfo              *layers;              /* Array of layer information */
+    int                           layer_count;         /* Number of layers */
+    size_t                        current_memory;      /* Current memory usage */
+    size_t                        peak_memory;         /* Peak memory usage */
+    size_t                        total_model_size;    /* Total model size in bytes */
+    uint64_t                      access_counter;      /* Counter for tracking access order */
+    uint64_t                     *access_history;      /* Circular buffer of recent accesses */
+    int                           history_size;        /* Size of the access history buffer */
+    int                           history_pos;         /* Current position in history buffer */
+    bool                          track_usage;         /* Whether to track usage patterns */
+    clock_t                       last_timestamp;      /* Last operation timestamp */
+    TinyAIMemoryStats             stats;               /* Memory statistics */
+    TinyAILayerState             *layer_states;        /* Array of layer states */
+    void                         *layer_weights;       /* Array of layer weights */
+    size_t                       *layer_sizes;         /* Array of layer sizes */
+    float                        *layer_priorities;    /* Array of layer priorities */
+    int                          *layer_access_counts; /* Array of layer access counts */
+    bool                         *layer_dependencies;  /* Array of layer dependencies */
 };
+
+/**
+ * Default configuration
+ */
+static const TinyAIProgressiveConfig DEFAULT_CONFIG = {.max_memory     = 1024 * 1024 * 1024, // 1GB
+                                                       .min_memory     = 128 * 1024 * 1024, // 128MB
+                                                       .load_threshold = 768 * 1024 * 1024, // 768MB
+                                                       .unload_threshold =
+                                                           896 * 1024 * 1024,     // 896MB
+                                                       .priority_window   = 1000, // 1 second
+                                                       .enable_prefetch   = true,
+                                                       .prefetch_distance = 2};
 
 /**
  * Get current timestamp in milliseconds
  */
-static uint64_t get_current_time_ms(void)
+static uint64_t get_timestamp_ms()
 {
     struct timespec ts;
-#ifdef _WIN32
-    timespec_get(&ts, TIME_UTC);
-#else
     clock_gettime(CLOCK_MONOTONIC, &ts);
-#endif
-    return (uint64_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
+    return (uint64_t)ts.tv_sec * 1000 + (uint64_t)ts.tv_nsec / 1000000;
 }
 
 /**
@@ -467,47 +482,11 @@ void *tinyaiGetProgressiveLayerWeights(TinyAIProgressiveLoader *loader, int laye
  */
 TinyAIMemoryStats tinyaiGetProgressiveLoaderMemoryStats(const TinyAIProgressiveLoader *loader)
 {
-    TinyAIMemoryStats stats;
-    memset(&stats, 0, sizeof(TinyAIMemoryStats));
-
     if (!loader) {
-        return stats;
+        TinyAIMemoryStats empty = {0};
+        return empty;
     }
-
-    stats.totalModelSize     = loader->total_model_size;
-    stats.currentMemoryUsage = loader->current_memory;
-    stats.peakMemoryUsage    = loader->peak_memory;
-    stats.memoryBudget       = loader->config.max_memory_budget;
-    stats.totalLayerCount    = loader->layer_count;
-
-    /* Count loaded layers */
-    for (int i = 0; i < loader->layer_count; i++) {
-        if (loader->layers[i].state == TINYAI_LAYER_LOADED) {
-            stats.loadedLayerCount++;
-        }
-    }
-
-    /* Calculate memory utilization ratio */
-    if (loader->config.max_memory_budget > 0) {
-        stats.memoryUtilization =
-            (float)loader->current_memory / (float)loader->config.max_memory_budget;
-    }
-
-    /* Calculate average load time across all layers */
-    float total_time   = 0.0f;
-    int   loaded_count = 0;
-    for (int i = 0; i < loader->layer_count; i++) {
-        if (loader->layers[i].load_count > 0) {
-            total_time += loader->layers[i].avg_load_time;
-            loaded_count++;
-        }
-    }
-
-    if (loaded_count > 0) {
-        stats.averageLoadTime = total_time / loaded_count;
-    }
-
-    return stats;
+    return loader->stats;
 }
 
 /**
@@ -923,4 +902,269 @@ bool tinyaiClearAllLayers(TinyAIProgressiveLoader *loader)
     }
 
     return success;
+}
+
+// Create progressive loader
+TinyAIProgressiveLoader *tinyaiCreateProgressiveLoader(const TinyAIProgressiveConfig *config)
+{
+    TinyAIProgressiveLoader *loader = malloc(sizeof(TinyAIProgressiveLoader));
+    if (!loader)
+        return NULL;
+
+    // Initialize with default or provided config
+    if (config) {
+        loader->config = *config;
+    }
+    else {
+        loader->config = DEFAULT_CONFIG;
+    }
+
+    // Initialize loader state
+    loader->layers         = NULL;
+    loader->layer_count    = 0;
+    loader->current_memory = 0;
+    loader->peak_memory    = 0;
+    loader->access_counter = 0;
+    loader->last_timestamp = clock();
+    loader->track_usage    = false;
+    loader->history_size   = 0;
+    loader->history_pos    = 0;
+    loader->is_initialized = false;
+
+    return loader;
+}
+
+// Initialize layer information
+bool tinyaiInitLayerInfo(TinyAIProgressiveLoader *loader, size_t layer_id, size_t memory_usage,
+                         TinyAILayerPriority priority, const size_t *dependencies,
+                         size_t num_dependencies)
+{
+    if (!loader || !dependencies || num_dependencies == 0)
+        return false;
+
+    // Resize layers array if needed
+    if (layer_id >= loader->layer_count) {
+        size_t           new_size   = layer_id + 1;
+        TinyAILayerInfo *new_layers = realloc(loader->layers, new_size * sizeof(TinyAILayerInfo));
+        if (!new_layers)
+            return false;
+        loader->layers      = new_layers;
+        loader->layer_count = new_size;
+    }
+
+    // Initialize layer info
+    TinyAILayerInfo *layer  = &loader->layers[layer_id];
+    layer->index            = layer_id;
+    layer->size             = memory_usage;
+    layer->priority         = priority;
+    layer->state            = TINYAI_LAYER_UNLOADED;
+    layer->access_count     = 0;
+    layer->last_access_time = 0;
+
+    // Copy dependencies
+    layer->dependencies = malloc(num_dependencies * sizeof(int));
+    if (!layer->dependencies)
+        return false;
+    memcpy(layer->dependencies, dependencies, num_dependencies * sizeof(int));
+    layer->dependency_count = num_dependencies;
+
+    loader->is_initialized = true;
+    return true;
+}
+
+// Request layer loading
+bool tinyaiRequestLayer(TinyAIProgressiveLoader *loader, size_t layer_id)
+{
+    if (!loader || layer_id >= loader->layer_count)
+        return false;
+
+    TinyAILayerInfo *layer = &loader->layers[layer_id];
+
+    // Check if layer is already loaded
+    if (layer->state == TINYAI_LAYER_LOADED) {
+        tinyaiUpdateLayerAccessStats(loader, layer_id);
+        return true;
+    }
+
+    // Check if we can load the layer
+    if (!tinyaiCanLoadLayer(loader, layer_id)) {
+        return false;
+    }
+
+    // Load dependencies first
+    for (size_t i = 0; i < layer->dependency_count; i++) {
+        size_t dep_id = layer->dependencies[i];
+        if (!tinyaiRequestLayer(loader, dep_id)) {
+            return false;
+        }
+    }
+
+    // Update layer state and memory usage
+    layer->state = TINYAI_LAYER_LOADED;
+    loader->current_memory += layer->size;
+    if (loader->current_memory > loader->peak_memory) {
+        loader->peak_memory = loader->current_memory;
+    }
+
+    tinyaiUpdateLayerAccessStats(loader, layer_id);
+    return true;
+}
+
+// Unload layer
+bool tinyaiUnloadLayer(TinyAIProgressiveLoader *loader, size_t layer_id)
+{
+    if (!loader || layer_id >= loader->layer_count)
+        return false;
+
+    TinyAILayerInfo *layer = &loader->layers[layer_id];
+
+    // Check if layer is loaded
+    if (layer->state != TINYAI_LAYER_LOADED)
+        return true;
+
+    // Check if any dependent layers are loaded
+    for (size_t i = 0; i < loader->layer_count; i++) {
+        if (i == layer_id)
+            continue;
+        TinyAILayerInfo *other = &loader->layers[i];
+        if (other->state == TINYAI_LAYER_LOADED) {
+            for (size_t j = 0; j < other->dependency_count; j++) {
+                if (other->dependencies[j] == layer_id) {
+                    return false; // Cannot unload, dependent layer is loaded
+                }
+            }
+        }
+    }
+
+    // Unload the layer
+    layer->state = TINYAI_LAYER_UNLOADED;
+    loader->current_memory -= layer->size;
+    return true;
+}
+
+// Get layer state
+TinyAILayerState tinyaiGetLayerState(const TinyAIProgressiveLoader *loader, size_t layer_id)
+{
+    if (!loader || layer_id >= loader->layer_count) {
+        return TINYAI_LAYER_UNLOADED;
+    }
+    return loader->layers[layer_id].state;
+}
+
+// Update layer priority
+bool tinyaiUpdateLayerPriority(TinyAIProgressiveLoader *loader, size_t layer_id,
+                               TinyAILayerPriority priority)
+{
+    if (!loader || layer_id >= loader->layer_count)
+        return false;
+    loader->layers[layer_id].priority = priority;
+    return true;
+}
+
+// Get memory usage
+size_t tinyaiGetMemoryUsage(const TinyAIProgressiveLoader *loader)
+{
+    return loader ? loader->current_memory : 0;
+}
+
+// Get peak memory usage
+size_t tinyaiGetPeakMemoryUsage(const TinyAIProgressiveLoader *loader)
+{
+    return loader ? loader->peak_memory : 0;
+}
+
+// Check if layer can be loaded
+bool tinyaiCanLoadLayer(const TinyAIProgressiveLoader *loader, size_t layer_id)
+{
+    if (!loader || layer_id >= loader->layer_count)
+        return false;
+
+    const TinyAILayerInfo *layer           = &loader->layers[layer_id];
+    size_t                 required_memory = loader->current_memory + layer->size;
+
+    // Check memory constraints
+    if (required_memory > loader->config.max_memory) {
+        return false;
+    }
+
+    // Check if we need to unload other layers
+    if (required_memory > loader->config.load_threshold) {
+        // TODO: Implement smart unloading strategy
+        return false;
+    }
+
+    return true;
+}
+
+// Get layer dependencies
+const size_t *tinyaiGetLayerDependencies(const TinyAIProgressiveLoader *loader, size_t layer_id,
+                                         size_t *num_dependencies)
+{
+    if (!loader || layer_id >= loader->layer_count || !num_dependencies) {
+        return NULL;
+    }
+
+    *num_dependencies = loader->layers[layer_id].dependency_count;
+    return loader->layers[layer_id].dependencies;
+}
+
+// Update layer access
+void tinyaiUpdateLayerAccess(TinyAIProgressiveLoader *loader, size_t layer_id)
+{
+    if (!loader || layer_id >= loader->layer_count)
+        return;
+
+    TinyAILayerInfo *layer = &loader->layers[layer_id];
+    layer->access_count++;
+    layer->last_access_time = get_timestamp_ms();
+}
+
+// Reset loader state
+void tinyaiResetProgressiveLoader(TinyAIProgressiveLoader *loader)
+{
+    if (!loader)
+        return;
+
+    // Reset all layers to unloaded state
+    for (size_t i = 0; i < loader->layer_count; i++) {
+        loader->layers[i].state            = TINYAI_LAYER_UNLOADED;
+        loader->layers[i].access_count     = 0;
+        loader->layers[i].last_access_time = 0;
+    }
+
+    loader->current_memory = 0;
+    loader->peak_memory    = 0;
+    loader->access_counter = 0;
+    loader->last_timestamp = clock();
+}
+
+// Enable/disable prefetching
+void tinyaiEnablePrefetching(TinyAIProgressiveLoader *loader, bool enable)
+{
+    if (!loader)
+        return;
+    loader->track_usage = enable;
+}
+
+// Set prefetch distance
+void tinyaiSetPrefetchDistance(TinyAIProgressiveLoader *loader, size_t distance)
+{
+    if (!loader)
+        return;
+    loader->config.prefetch_distance = distance;
+}
+
+// Get loader configuration
+const TinyAIProgressiveConfig *tinyaiGetLoaderConfig(const TinyAIProgressiveLoader *loader)
+{
+    return loader ? &loader->config : NULL;
+}
+
+// Set loader configuration
+bool tinyaiSetLoaderConfig(TinyAIProgressiveLoader *loader, const TinyAIProgressiveConfig *config)
+{
+    if (!loader || !config)
+        return false;
+    loader->config = *config;
+    return true;
 }

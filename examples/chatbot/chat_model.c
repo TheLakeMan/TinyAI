@@ -451,7 +451,7 @@ bool tinyaiChatAddMessage(TinyAIChatSession *session, TinyAIChatRole role, const
 
     /* Add the new message */
     session->messages[session->messageCount].role    = role;
-    session->messages[session->messageCount].content = strdup(content);
+    session->messages[session->messageCount].content = _strdup(content);
     if (!session->messages[session->messageCount].content) {
         fprintf(stderr, "Failed to allocate message content\n");
         return false;

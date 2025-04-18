@@ -12,18 +12,18 @@
 #include <string.h>
 
 /* Helper function to determine number of bits needed for storage */
-static size_t getPrecisionBytes(TinyAIPrecisionType precision, size_t numElements)
+static size_t getPrecisionBytes(TinyAIMixedPrecType precision, size_t numElements)
 {
     switch (precision) {
-    case TINYAI_PRECISION_FP32:
+    case TINYAI_MIXED_PREC_FP32:
         return numElements * sizeof(float);
-    case TINYAI_PRECISION_FP16:
+    case TINYAI_MIXED_PREC_FP16:
         return numElements * sizeof(uint16_t); /* FP16 stored as uint16_t */
-    case TINYAI_PRECISION_INT8:
+    case TINYAI_MIXED_PREC_INT8:
         return numElements * sizeof(int8_t);
-    case TINYAI_PRECISION_INT4:
+    case TINYAI_MIXED_PREC_INT4:
         return (numElements + 1) / 2; /* 4-bit packed, 2 values per byte */
-    case TINYAI_PRECISION_INT2:
+    case TINYAI_MIXED_PREC_INT2:
         return (numElements + 3) / 4; /* 2-bit packed, 4 values per byte */
     default:
         return 0;
@@ -31,27 +31,27 @@ static size_t getPrecisionBytes(TinyAIPrecisionType precision, size_t numElement
 }
 
 /* Helper function to get minmax for different precisions */
-static void getPrecisionMinMax(TinyAIPrecisionType precision, float *min, float *max)
+static void getPrecisionMinMax(TinyAIMixedPrecType precision, float *min, float *max)
 {
     switch (precision) {
-    case TINYAI_PRECISION_FP32:
+    case TINYAI_MIXED_PREC_FP32:
         *min = -FLT_MAX;
         *max = FLT_MAX;
         break;
-    case TINYAI_PRECISION_FP16:
+    case TINYAI_MIXED_PREC_FP16:
         /* IEEE 754 half-precision floating-point format */
         *min = -65504.0f; /* Min positive normal */
         *max = 65504.0f;  /* Max positive normal */
         break;
-    case TINYAI_PRECISION_INT8:
+    case TINYAI_MIXED_PREC_INT8:
         *min = -128.0f;
         *max = 127.0f;
         break;
-    case TINYAI_PRECISION_INT4:
+    case TINYAI_MIXED_PREC_INT4:
         *min = -8.0f;
         *max = 7.0f;
         break;
-    case TINYAI_PRECISION_INT2:
+    case TINYAI_MIXED_PREC_INT2:
         *min = -2.0f;
         *max = 1.0f;
         break;
@@ -90,19 +90,19 @@ static void computeScaleAndZeroPoint(const float *data, int size, float min, flo
 }
 
 /* Helper function to quantize FP32 to different precisions */
-static void quantizeToTarget(const float *src, void *dst, int size, TinyAIPrecisionType precision,
+static void quantizeToTarget(const float *src, void *dst, int size, TinyAIMixedPrecType precision,
                              float scale, float zeroPoint)
 {
     float min, max;
     getPrecisionMinMax(precision, &min, &max);
 
     switch (precision) {
-    case TINYAI_PRECISION_FP32:
+    case TINYAI_MIXED_PREC_FP32:
         /* Direct copy for FP32 */
         memcpy(dst, src, size * sizeof(float));
         break;
 
-    case TINYAI_PRECISION_FP16: {
+    case TINYAI_MIXED_PREC_FP16: {
         /* Quantize to FP16 (simple version, not full IEEE 754 compliant) */
         uint16_t *dstFp16 = (uint16_t *)dst;
         for (int i = 0; i < size; i++) {
@@ -148,7 +148,7 @@ static void quantizeToTarget(const float *src, void *dst, int size, TinyAIPrecis
         break;
     }
 
-    case TINYAI_PRECISION_INT8: {
+    case TINYAI_MIXED_PREC_INT8: {
         /* Quantize to INT8 */
         int8_t *dstInt8 = (int8_t *)dst;
         for (int i = 0; i < size; i++) {
@@ -163,7 +163,7 @@ static void quantizeToTarget(const float *src, void *dst, int size, TinyAIPrecis
         break;
     }
 
-    case TINYAI_PRECISION_INT4: {
+    case TINYAI_MIXED_PREC_INT4: {
         /* Quantize to INT4 (packed, 2 values per byte) */
         uint8_t *dstInt4 = (uint8_t *)dst;
         for (int i = 0; i < size; i += 2) {
@@ -191,7 +191,7 @@ static void quantizeToTarget(const float *src, void *dst, int size, TinyAIPrecis
         break;
     }
 
-    case TINYAI_PRECISION_INT2: {
+    case TINYAI_MIXED_PREC_INT2: {
         /* Quantize to INT2 (packed, 4 values per byte) */
         uint8_t *dstInt2 = (uint8_t *)dst;
         for (int i = 0; i < size; i += 4) {
@@ -222,16 +222,16 @@ static void quantizeToTarget(const float *src, void *dst, int size, TinyAIPrecis
 }
 
 /* Helper function to dequantize to FP32 */
-static void dequantizeToFloat(const void *src, float *dst, int size, TinyAIPrecisionType precision,
+static void dequantizeToFloat(const void *src, float *dst, int size, TinyAIMixedPrecType precision,
                               float scale, float zeroPoint)
 {
     switch (precision) {
-    case TINYAI_PRECISION_FP32:
+    case TINYAI_MIXED_PREC_FP32:
         /* Direct copy for FP32 */
         memcpy(dst, src, size * sizeof(float));
         break;
 
-    case TINYAI_PRECISION_FP16: {
+    case TINYAI_MIXED_PREC_FP16: {
         /* Dequantize from FP16 */
         const uint16_t *srcFp16 = (const uint16_t *)src;
         for (int i = 0; i < size; i++) {
@@ -270,7 +270,7 @@ static void dequantizeToFloat(const void *src, float *dst, int size, TinyAIPreci
         break;
     }
 
-    case TINYAI_PRECISION_INT8: {
+    case TINYAI_MIXED_PREC_INT8: {
         /* Dequantize from INT8 */
         const int8_t *srcInt8 = (const int8_t *)src;
         for (int i = 0; i < size; i++) {
@@ -279,7 +279,7 @@ static void dequantizeToFloat(const void *src, float *dst, int size, TinyAIPreci
         break;
     }
 
-    case TINYAI_PRECISION_INT4: {
+    case TINYAI_MIXED_PREC_INT4: {
         /* Dequantize from INT4 (packed, 2 values per byte) */
         const uint8_t *srcInt4 = (const uint8_t *)src;
         for (int i = 0; i < size; i += 2) {
@@ -303,7 +303,7 @@ static void dequantizeToFloat(const void *src, float *dst, int size, TinyAIPreci
         break;
     }
 
-    case TINYAI_PRECISION_INT2: {
+    case TINYAI_MIXED_PREC_INT2: {
         /* Dequantize from INT2 (packed, 4 values per byte) */
         const uint8_t *srcInt2 = (const uint8_t *)src;
         for (int i = 0; i < size; i += 4) {
@@ -332,7 +332,7 @@ static void dequantizeToFloat(const void *src, float *dst, int size, TinyAIPreci
 /* Public API Implementation */
 
 TinyAIMixedPrecMatrix *tinyaiCreateMixedPrecMatrix(const float *data, int rows, int cols,
-                                                   TinyAIPrecisionType precision, float threshold)
+                                                   TinyAIMixedPrecType precision, float threshold)
 {
     if (!data || rows <= 0 || cols <= 0) {
         return NULL;
@@ -467,16 +467,16 @@ bool tinyaiDetermineOptimalPrecision(const char *modelPath, const float *calibra
     for (int i = 0; i < config->numLayers; i++) {
         if (i == 0 || i == config->numLayers - 1) {
             /* First and last layers are more sensitive, use 8-bit */
-            config->layerConfigs[i].weightPrecision = TINYAI_PRECISION_INT8;
+            config->layerConfigs[i].weightPrecision = TINYAI_MIXED_PREC_INT8;
             config->layerConfigs[i].biasPrecision =
-                TINYAI_PRECISION_FP32; /* Biases often kept at higher precision */
-            config->layerConfigs[i].activPrecision = TINYAI_PRECISION_INT8;
+                TINYAI_MIXED_PREC_FP32; /* Biases often kept at higher precision */
+            config->layerConfigs[i].activPrecision = TINYAI_MIXED_PREC_INT8;
         }
         else {
             /* Internal layers use 4-bit */
-            config->layerConfigs[i].weightPrecision = TINYAI_PRECISION_INT4;
-            config->layerConfigs[i].biasPrecision   = TINYAI_PRECISION_FP16;
-            config->layerConfigs[i].activPrecision  = TINYAI_PRECISION_INT8;
+            config->layerConfigs[i].weightPrecision = TINYAI_MIXED_PREC_INT4;
+            config->layerConfigs[i].biasPrecision   = TINYAI_MIXED_PREC_FP16;
+            config->layerConfigs[i].activPrecision  = TINYAI_MIXED_PREC_INT8;
         }
 
         /* Set default thresholds */
@@ -580,18 +580,18 @@ void tinyaiFreeMixedPrecConfig(TinyAIMixedPrecConfig *config)
     }
 }
 
-int tinyaiGetPrecisionBits(TinyAIPrecisionType precision)
+int tinyaiGetPrecisionBits(TinyAIMixedPrecType precision)
 {
     switch (precision) {
-    case TINYAI_PRECISION_FP32:
+    case TINYAI_MIXED_PREC_FP32:
         return 32;
-    case TINYAI_PRECISION_FP16:
+    case TINYAI_MIXED_PREC_FP16:
         return 16;
-    case TINYAI_PRECISION_INT8:
+    case TINYAI_MIXED_PREC_INT8:
         return 8;
-    case TINYAI_PRECISION_INT4:
+    case TINYAI_MIXED_PREC_INT4:
         return 4;
-    case TINYAI_PRECISION_INT2:
+    case TINYAI_MIXED_PREC_INT2:
         return 2;
     default:
         return 0;
@@ -641,9 +641,9 @@ TinyAIMixedPrecConfig *tinyaiCreateDefaultMixedPrecConfig(int numLayers)
     /* Initialize each layer with default settings */
     for (int i = 0; i < numLayers; i++) {
         /* Default to 4-bit weights, 16-bit biases, 8-bit activations */
-        config->layerConfigs[i].weightPrecision = TINYAI_PRECISION_INT4;
-        config->layerConfigs[i].biasPrecision   = TINYAI_PRECISION_FP16;
-        config->layerConfigs[i].activPrecision  = TINYAI_PRECISION_INT8;
+        config->layerConfigs[i].weightPrecision = TINYAI_MIXED_PREC_INT4;
+        config->layerConfigs[i].biasPrecision   = TINYAI_MIXED_PREC_FP16;
+        config->layerConfigs[i].activPrecision  = TINYAI_MIXED_PREC_INT8;
         config->layerConfigs[i].weightThreshold = 0.0f; /* Auto */
         config->layerConfigs[i].biasThreshold   = 0.0f; /* Auto */
         config->layerConfigs[i].activThreshold  = 0.0f; /* Auto */

@@ -437,7 +437,7 @@ int tinyaiConfigSetString(const char *key, const char *value) {
     
     /* Copy the new value */
     if (value) {
-        configEntries[index].value.value.stringValue = strdup(value);
+        configEntries[index].value.value.stringValue = _strdup(value);
         if (!configEntries[index].value.value.stringValue) {
             return -1;
         }
@@ -646,7 +646,7 @@ int tinyaiConfigOverride(const char *key, const char *value) {
     if ((value[0] == '"' && value[strlen(value) - 1] == '"') ||
         (value[0] == '\'' && value[strlen(value) - 1] == '\'')) {
         /* String value */
-        char *stringValue = strdup(value + 1);
+        char *stringValue = _strdup(value + 1);
         stringValue[strlen(stringValue) - 1] = '\0';
         
         int result = tinyaiConfigSetString(key, stringValue);

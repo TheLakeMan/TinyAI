@@ -8,6 +8,7 @@
 
 #include "../models/image/image_model.h"
 #include <stdbool.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -80,6 +81,27 @@ BenchmarkResult *benchmarkMultipleModels(TinyAIImageModel **models, const char *
  * @return true on success, false on failure
  */
 bool createBenchmarkReport(const BenchmarkResult *results, int numResults, const char *filepath);
+
+// Benchmark operation structure
+typedef struct {
+    void (*setup)(void *);     // Setup function
+    void (*operation)(void *); // Operation to benchmark
+    void (*teardown)(void *);  // Teardown function
+    void *context;             // Context for the operation
+} TinyAIBenchmarkOperation;
+
+// Benchmark result structure
+typedef struct {
+    double average_time_ms; // Average execution time in milliseconds
+    double min_time_ms;     // Minimum execution time in milliseconds
+    double max_time_ms;     // Maximum execution time in milliseconds
+    double std_dev_ms;      // Standard deviation in milliseconds
+    size_t iterations;      // Number of iterations performed
+} TinyAIBenchmarkResult;
+
+// Benchmark an operation
+TinyAIBenchmarkResult tinyaiBenchmarkOperation(const char *name, size_t iterations,
+                                               TinyAIBenchmarkOperation operation);
 
 #ifdef __cplusplus
 }

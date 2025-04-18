@@ -8,13 +8,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Define STB_IMAGE_IMPLEMENTATION in only one source file */
+/* Define STB_IMAGE_IMPLEMENTATION in one file only */
 #define STB_IMAGE_IMPLEMENTATION
 #include "../../third_party/stb/stb_image.h"
 
-/* Define STB_IMAGE_WRITE_IMPLEMENTATION for saving images */
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "../../third_party/stb/stb_image_write.h"
+#include "image_utils.h"
 
 /**
  * Load an image from a file using STB Image library
@@ -246,4 +244,45 @@ void tinyaiImageFreeDataset(TinyAIImage **images, int numImages)
     }
 
     free(images);
+}
+
+/**
+ * Load an image file using stb_image
+ *
+ * @param filename Path to the image file
+ * @param width Pointer to store the width
+ * @param height Pointer to store the height
+ * @param channels Pointer to store the number of channels
+ * @return Pixel data array or NULL on error
+ */
+unsigned char *tinyaiLoadImage(const char *filename, int *width, int *height, int *channels)
+{
+    if (!filename || !width || !height || !channels) {
+        fprintf(stderr, "Invalid parameters to tinyaiLoadImage\n");
+        return NULL;
+    }
+
+    /* Force 3 channels (RGB) for consistency */
+    unsigned char *data = stbi_load(filename, width, height, channels, 3);
+    if (!data) {
+        fprintf(stderr, "Failed to load image %s: %s\n", filename, stbi_failure_reason());
+        return NULL;
+    }
+
+    /* Always set channels to 3 (RGB) since we forced it */
+    *channels = 3;
+
+    return data;
+}
+
+/**
+ * Free memory allocated by tinyaiLoadImage
+ *
+ * @param data Pixel data to free
+ */
+void tinyaiFreeImage(unsigned char *data)
+{
+    if (data) {
+        stbi_image_free(data);
+    }
 }

@@ -1,6 +1,38 @@
-# Build directories
+# Build outputs
 build/
 out/
+*.exe
+*.o
+*.obj
+*.dll
+*.so
+*.a
+*.lib
+
+# IDE files
+.vs/
+.vscode/
+*.code-workspace
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+
+# Dependencies
+vendor/
+third_party/
+
+# Debug files
+*.pdb
+*.ilk
+*.idb
+*.pch
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Build directories
 bin/
 lib/
 vs2022/
@@ -27,15 +59,12 @@ _deps/
 # Compiled Object files
 *.slo
 *.lo
-*.o
-*.obj
+*.pch
 
 # Precompiled Headers
 *.gch
-*.pch
 
 # Compiled Dynamic libraries
-*.so
 *.dylib
 *.dll
 
@@ -46,7 +75,6 @@ _deps/
 *.lib
 
 # Executables
-*.exe
 *.out
 *.app
 
@@ -55,13 +83,9 @@ _deps/
 *.opensdf
 *.suo
 *.user
-*.vcxproj.filters
 *.vcproj.*.user
-*.vcxproj.user
 *.aps
 *.pdb
-*.ilk
-*.idb
 *.ipdb
 *.iobj
 *.lastbuildstate
@@ -74,11 +98,9 @@ _deps/
 .vs/
 
 # IDE files
-.vscode/
 .idea/
 *.swp
 *~
-.DS_Store
 
 # Node.js (for the web server components if any)
 node_modules/

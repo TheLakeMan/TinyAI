@@ -80,7 +80,7 @@ static bool endsWith(const char *str, const char *suffix)
 static TinyAITag createTag(const char *text, float confidence, TinyAITagCategory category)
 {
     TinyAITag tag;
-    tag.text       = strdup(text);
+    tag.text       = _strdup(text);
     tag.confidence = confidence;
     tag.category   = category;
     return tag;
@@ -529,7 +529,7 @@ static char **extractKeywords(TinyAIMediaTagger *tagger, const char *text, int *
         }
 
         if (*token) {
-            keywords[*numKeywords] = strdup(token);
+            keywords[*numKeywords] = _strdup(token);
             (*numKeywords)++;
         }
 

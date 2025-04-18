@@ -20,76 +20,64 @@ extern "C" {
 #endif
 
 /**
- * @brief Layer state in the progressive loader
+ * @brief Layer priority levels
  */
 typedef enum {
-    TINYAI_LAYER_UNLOADED,    /**< Layer is not currently loaded in memory */
-    TINYAI_LAYER_LOADING,     /**< Layer is in the process of being loaded */
-    TINYAI_LAYER_LOADED,      /**< Layer is fully loaded in memory */
-    TINYAI_LAYER_UNLOADING,   /**< Layer is in the process of being unloaded */
-    TINYAI_LAYER_PREFETCHING, /**< Layer is being prefetched in the background */
-    TINYAI_LAYER_ERROR        /**< Error state */
+    TINYAI_LAYER_PRIORITY_LOW      = 0,
+    TINYAI_LAYER_PRIORITY_MEDIUM   = 1,
+    TINYAI_LAYER_PRIORITY_HIGH     = 2,
+    TINYAI_LAYER_PRIORITY_CRITICAL = 3
+} TinyAILayerPriority;
+
+/**
+ * @brief Layer state
+ */
+typedef enum {
+    TINYAI_LAYER_STATE_UNLOADED  = 0,
+    TINYAI_LAYER_STATE_LOADING   = 1,
+    TINYAI_LAYER_STATE_LOADED    = 2,
+    TINYAI_LAYER_STATE_UNLOADING = 3
 } TinyAILayerState;
 
 /**
- * @brief Priority strategies for loading/unloading layers
- */
-typedef enum {
-    TINYAI_PRIORITY_LRU,   /**< Least Recently Used */
-    TINYAI_PRIORITY_MFU,   /**< Most Frequently Used */
-    TINYAI_PRIORITY_FIFO,  /**< First In, First Out */
-    TINYAI_PRIORITY_CUSTOM /**< Custom priority using user-defined values */
-} TinyAIPriorityStrategy;
-
-/**
- * @brief Usage patterns for predictive layer loading
- */
-typedef enum {
-    TINYAI_USAGE_UNKNOWN,    /**< Unknown usage pattern */
-    TINYAI_USAGE_SEQUENTIAL, /**< Sequential access pattern */
-    TINYAI_USAGE_REPEATED,   /**< Repeated access to specific layers */
-    TINYAI_USAGE_RANDOM      /**< Random access pattern */
-} TinyAIUsagePattern;
-
-/**
- * @brief Memory statistics for progressive loader
+ * @brief Layer information
  */
 typedef struct {
-    size_t totalModelSize;     /**< Total size of model in bytes */
-    size_t currentMemoryUsage; /**< Current memory usage in bytes */
-    size_t peakMemoryUsage;    /**< Peak memory usage in bytes */
-    size_t memoryBudget;       /**< Maximum memory budget in bytes */
-    int    totalLayerCount;    /**< Total number of layers in model */
-    int    loadedLayerCount;   /**< Number of currently loaded layers */
-    float  memoryUtilization;  /**< Memory utilization ratio (0.0-1.0) */
-    float  averageLoadTime;    /**< Average time to load a layer in ms */
-} TinyAIMemoryStats;
+    size_t              layer_id;         // Unique identifier for the layer
+    size_t              memory_usage;     // Memory required by the layer
+    TinyAILayerPriority priority;         // Current priority level
+    TinyAILayerState    state;            // Current state
+    size_t              access_count;     // Number of times accessed
+    uint64_t            last_access_time; // Timestamp of last access
+    size_t             *dependencies;     // Array of dependent layer IDs
+    size_t              num_dependencies; // Number of dependencies
+} TinyAILayerInfo;
 
 /**
  * @brief Progressive loader configuration
  */
 typedef struct {
-    size_t max_memory_budget;                 /**< Maximum memory budget in bytes */
-    bool   enable_layer_unloading;            /**< Whether to unload layers when memory is full */
-    TinyAIPriorityStrategy priority_strategy; /**< Strategy to use for unloading */
-    float prefetch_threshold;         /**< Memory utilization threshold for prefetching (0.0-1.0) */
-    int   max_prefetch_layers;        /**< Maximum number of layers to prefetch */
-    bool  enable_compression;         /**< Whether to enable weight compression */
-    bool  enable_dependency_tracking; /**< Track dependencies between layers */
-    int   cache_alignment;            /**< Memory alignment for cache optimization */
-} TinyAIProgressiveLoaderConfig;
+    size_t max_memory;        // Maximum memory budget
+    size_t min_memory;        // Minimum memory to keep free
+    size_t load_threshold;    // Memory threshold for loading
+    size_t unload_threshold;  // Memory threshold for unloading
+    size_t priority_window;   // Time window for priority calculation
+    bool   enable_prefetch;   // Whether to enable prefetching
+    size_t prefetch_distance; // Number of layers to prefetch
+} TinyAIProgressiveConfig;
 
 /**
- * @brief Progressive loader for model weights
+ * @brief Progressive loader context
  */
-typedef struct TinyAIProgressiveLoader TinyAIProgressiveLoader;
-
-/**
- * @brief Create a default configuration for progressive loader
- *
- * @return Default configuration with sensible settings
- */
-TinyAIProgressiveLoaderConfig tinyaiCreateDefaultProgressiveLoaderConfig(void);
+typedef struct {
+    TinyAIProgressiveConfig config;
+    TinyAILayerInfo        *layers;
+    size_t                  num_layers;
+    size_t                  current_memory;
+    size_t                  peak_memory;
+    uint64_t                start_time;
+    bool                    is_initialized;
+} TinyAIProgressiveLoader;
 
 /**
  * @brief Create a progressive loader for a model
@@ -99,7 +87,7 @@ TinyAIProgressiveLoaderConfig tinyaiCreateDefaultProgressiveLoaderConfig(void);
  * @return Pointer to the created loader or NULL on failure
  */
 TinyAIProgressiveLoader *tinyaiCreateProgressiveLoader(const char                    *model_path,
-                                                       TinyAIProgressiveLoaderConfig *config);
+                                                       const TinyAIProgressiveConfig *config);
 
 /**
  * @brief Create a progressive loader from an existing memory mapped model
@@ -110,7 +98,7 @@ TinyAIProgressiveLoader *tinyaiCreateProgressiveLoader(const char               
  */
 TinyAIProgressiveLoader *
 tinyaiCreateProgressiveLoaderFromMapped(TinyAIMappedModel             *mapped_model,
-                                        TinyAIProgressiveLoaderConfig *config);
+                                        const TinyAIProgressiveConfig *config);
 
 /**
  * @brief Free a progressive loader and release all resources
@@ -120,139 +108,141 @@ tinyaiCreateProgressiveLoaderFromMapped(TinyAIMappedModel             *mapped_mo
 void tinyaiFreeProgressiveLoader(TinyAIProgressiveLoader *loader);
 
 /**
- * @brief Load a specific layer from the model
+ * @brief Initialize layer information
  *
  * @param loader Pointer to the progressive loader
- * @param layer_index Index of the layer to load
+ * @param layer_id Unique identifier for the layer
+ * @param memory_usage Memory required by the layer
+ * @param priority Current priority level
+ * @param dependencies Array of dependent layer IDs
+ * @param num_dependencies Number of dependencies
  * @return true if successful, false on failure
  */
-bool tinyaiLoadModelLayer(TinyAIProgressiveLoader *loader, int layer_index);
+bool tinyaiInitLayerInfo(TinyAIProgressiveLoader *loader, size_t layer_id, size_t memory_usage,
+                         TinyAILayerPriority priority, const size_t *dependencies,
+                         size_t num_dependencies);
 
 /**
- * @brief Unload a specific layer from the model
+ * @brief Request layer loading
  *
  * @param loader Pointer to the progressive loader
- * @param layer_index Index of the layer to unload
+ * @param layer_id Unique identifier for the layer
  * @return true if successful, false on failure
  */
-bool tinyaiUnloadModelLayer(TinyAIProgressiveLoader *loader, int layer_index);
+bool tinyaiRequestLayer(TinyAIProgressiveLoader *loader, size_t layer_id);
 
 /**
- * @brief Get a pointer to a layer's weights, loading from disk if necessary
+ * @brief Unload layer
  *
  * @param loader Pointer to the progressive loader
- * @param layer_index Index of the layer to get weights for
- * @return Pointer to the layer weights or NULL on failure
- */
-void *tinyaiGetProgressiveLayerWeights(TinyAIProgressiveLoader *loader, int layer_index);
-
-/**
- * @brief Get memory usage statistics for the progressive loader
- *
- * @param loader Pointer to the progressive loader
- * @return Memory statistics structure
- */
-TinyAIMemoryStats tinyaiGetProgressiveLoaderMemoryStats(const TinyAIProgressiveLoader *loader);
-
-/**
- * @brief Set memory budget for the progressive loader
- *
- * @param loader Pointer to the progressive loader
- * @param budget_bytes New memory budget in bytes
+ * @param layer_id Unique identifier for the layer
  * @return true if successful, false on failure
  */
-bool tinyaiSetProgressiveLoaderMemoryBudget(TinyAIProgressiveLoader *loader, size_t budget_bytes);
+bool tinyaiUnloadLayer(TinyAIProgressiveLoader *loader, size_t layer_id);
 
 /**
- * @brief Add a dependency relationship between layers
+ * @brief Get layer state
  *
  * @param loader Pointer to the progressive loader
- * @param dependent_layer Index of the dependent layer
- * @param dependency_layer Index of the dependency layer
- * @return true if successful, false on failure
- */
-bool tinyaiAddLayerDependency(TinyAIProgressiveLoader *loader, int dependent_layer,
-                              int dependency_layer);
-
-/**
- * @brief Check if a layer can be safely unloaded
- *
- * @param loader Pointer to the progressive loader
- * @param layer_index Index of the layer to check
- * @return true if the layer can be unloaded, false otherwise
- */
-bool tinyaiCanUnloadLayer(const TinyAIProgressiveLoader *loader, int layer_index);
-
-/**
- * @brief Update access statistics for a layer
- *
- * @param loader Pointer to the progressive loader
- * @param layer_index Index of the layer to update
- */
-void tinyaiUpdateLayerAccessStats(TinyAIProgressiveLoader *loader, int layer_index);
-
-/**
- * @brief Get layers to preload based on usage patterns
- *
- * @param loader Pointer to the progressive loader
- * @param current_layer Current layer index
- * @param count Pointer to store the number of layers to preload
- * @return Array of layer indices to preload, must be freed by caller
- */
-int *tinyaiGetLayersToPreload(TinyAIProgressiveLoader *loader, int current_layer, int *count);
-
-/**
- * @brief Analyze usage pattern from access history
- *
- * @param loader Pointer to the progressive loader
- * @return Detected usage pattern
- */
-TinyAIUsagePattern tinyaiGetUsagePattern(const TinyAIProgressiveLoader *loader);
-
-/**
- * @brief Set custom priority value for a layer
- *
- * @param loader Pointer to the progressive loader
- * @param layer_index Index of the layer to set priority for
- * @param priority Priority value (higher values mean higher priority)
- * @return true if successful, false on failure
- */
-bool tinyaiSetLayerCustomPriority(TinyAIProgressiveLoader *loader, int layer_index, float priority);
-
-/**
- * @brief Get the current state of a layer
- *
- * @param loader Pointer to the progressive loader
- * @param layer_index Index of the layer to check
+ * @param layer_id Unique identifier for the layer
  * @return Current state of the layer
  */
-TinyAILayerState tinyaiGetLayerState(const TinyAIProgressiveLoader *loader, int layer_index);
+TinyAILayerState tinyaiGetLayerState(const TinyAIProgressiveLoader *loader, size_t layer_id);
 
 /**
- * @brief Optimize memory allocation across layers based on access patterns
+ * @brief Update layer priority
  *
  * @param loader Pointer to the progressive loader
+ * @param layer_id Unique identifier for the layer
+ * @param priority New priority level
  * @return true if successful, false on failure
  */
-bool tinyaiOptimizeLayerMemoryAllocation(TinyAIProgressiveLoader *loader);
+bool tinyaiUpdateLayerPriority(TinyAIProgressiveLoader *loader, size_t layer_id,
+                               TinyAILayerPriority priority);
 
 /**
- * @brief Preload a specified sequence of layers
+ * @brief Get memory usage
  *
  * @param loader Pointer to the progressive loader
- * @param layer_indices Array of layer indices to preload
- * @param count Number of layers in the array
- * @return true if all layers were loaded successfully, false otherwise
+ * @return Current memory usage in bytes
  */
-bool tinyaiPreloadLayers(TinyAIProgressiveLoader *loader, const int *layer_indices, int count);
+size_t tinyaiGetMemoryUsage(const TinyAIProgressiveLoader *loader);
 
 /**
- * @brief Clear all loaded layers to free memory
+ * @brief Get peak memory usage
  *
  * @param loader Pointer to the progressive loader
+ * @return Peak memory usage in bytes
+ */
+size_t tinyaiGetPeakMemoryUsage(const TinyAIProgressiveLoader *loader);
+
+/**
+ * @brief Check if layer can be loaded
+ *
+ * @param loader Pointer to the progressive loader
+ * @param layer_id Unique identifier for the layer
+ * @return true if the layer can be loaded, false otherwise
+ */
+bool tinyaiCanLoadLayer(const TinyAIProgressiveLoader *loader, size_t layer_id);
+
+/**
+ * @brief Get layer dependencies
+ *
+ * @param loader Pointer to the progressive loader
+ * @param layer_id Unique identifier for the layer
+ * @param num_dependencies Pointer to store the number of dependencies
+ * @return Array of dependent layer IDs
+ */
+const size_t *tinyaiGetLayerDependencies(const TinyAIProgressiveLoader *loader, size_t layer_id,
+                                         size_t *num_dependencies);
+
+/**
+ * @brief Update layer access
+ *
+ * @param loader Pointer to the progressive loader
+ * @param layer_id Unique identifier for the layer
+ */
+void tinyaiUpdateLayerAccess(TinyAIProgressiveLoader *loader, size_t layer_id);
+
+/**
+ * @brief Reset loader state
+ *
+ * @param loader Pointer to the progressive loader
+ */
+void tinyaiResetProgressiveLoader(TinyAIProgressiveLoader *loader);
+
+/**
+ * @brief Enable/disable prefetching
+ *
+ * @param loader Pointer to the progressive loader
+ * @param enable true to enable prefetching, false to disable
+ */
+void tinyaiEnablePrefetching(TinyAIProgressiveLoader *loader, bool enable);
+
+/**
+ * @brief Set prefetch distance
+ *
+ * @param loader Pointer to the progressive loader
+ * @param distance Number of layers to prefetch
+ */
+void tinyaiSetPrefetchDistance(TinyAIProgressiveLoader *loader, size_t distance);
+
+/**
+ * @brief Get loader configuration
+ *
+ * @param loader Pointer to the progressive loader
+ * @return Configuration settings
+ */
+const TinyAIProgressiveConfig *tinyaiGetLoaderConfig(const TinyAIProgressiveLoader *loader);
+
+/**
+ * @brief Set loader configuration
+ *
+ * @param loader Pointer to the progressive loader
+ * @param config New configuration settings
  * @return true if successful, false on failure
  */
-bool tinyaiClearAllLayers(TinyAIProgressiveLoader *loader);
+bool tinyaiSetLoaderConfig(TinyAIProgressiveLoader *loader, const TinyAIProgressiveConfig *config);
 
 #ifdef __cplusplus
 }

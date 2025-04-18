@@ -301,7 +301,7 @@ picolInterp *picolCreateInterp(void)
     i->callframe->parent  = NULL;
     i->callframe->command = NULL; // Initialize command field
     i->commands           = NULL;
-    i->resultString       = strdup("");
+    i->resultString       = _strdup("");
     i->result             = PICOL_OK;
     i->arrays             = NULL; // Initialize arrays field
     i->current            = NULL; // Initialize current field
@@ -318,7 +318,7 @@ void picolInitInterp(picolInterp *i)
     i->callframe->parent  = NULL;
     i->callframe->command = NULL; // Initialize command field
     i->commands           = NULL;
-    i->resultString       = strdup("");
+    i->resultString       = _strdup("");
     i->result             = PICOL_OK;
     i->arrays             = NULL; // Initialize arrays field
     i->current            = NULL; // Initialize current field
@@ -328,7 +328,7 @@ void picolInitInterp(picolInterp *i)
 void picolSetResult(picolInterp *i, char *s)
 {
     free(i->resultString);
-    i->resultString = strdup(s);
+    i->resultString = _strdup(s);
 }
 
 // Implementation of picolGetResult (required by picol.h)
@@ -360,7 +360,7 @@ int picolSetVar(picolInterp *i, char *name, char *val)
     struct picolVar *v = picolInternalGetVar(i, name);
     if (v) {
         free(v->val);
-        v->val = strdup(val);
+        v->val = _strdup(val);
         if (!v->val) {
             picolSetResult(i, "Out of memory updating variable");
             i->result = PICOL_ERR;
@@ -374,8 +374,8 @@ int picolSetVar(picolInterp *i, char *name, char *val)
             i->result = PICOL_ERR;
             return PICOL_ERR;
         }
-        v->name = strdup(name);
-        v->val  = strdup(val);
+        v->name = _strdup(name);
+        v->val  = _strdup(val);
         if (!v->name || !v->val) {
             if (v->name)
                 free(v->name);
@@ -416,7 +416,7 @@ int picolSetArrayVar(picolInterp *i, char *name, char *key, char *val)
             i->result = PICOL_ERR;
             return PICOL_ERR;
         }
-        a->name   = strdup(name);
+        a->name   = _strdup(name);
         a->vars   = NULL;
         a->next   = i->arrays;
         i->arrays = a;
@@ -464,7 +464,7 @@ int picolRegisterCommand(picolInterp *i, char *name, picolCmdFunc func, void *pr
 
     c = malloc(sizeof(picolCmd));
     if (c)
-        c->name = strdup(name);
+        c->name = _strdup(name);
     if (c == NULL || c->name == NULL) {
         if (c)
             free(c->name);
@@ -553,14 +553,14 @@ int picolEval(picolInterp *i, char *t)
                 goto err;
             }
             free(t);
-            t = strdup(v);
+            t = _strdup(v);
         }
         else if (p.type == PT_CMD) {
             retcode = picolEval(i, t);
             free(t);
             if (retcode != PICOL_OK)
                 goto err;
-            t = strdup(i->resultString);
+            t = _strdup(i->resultString);
         }
         else if (p.type == PT_ESC) {
             /* TODO: escape handling missing! */
@@ -754,13 +754,13 @@ void picolDropCallFrame(picolInterp *i)
 
 int picolCommandCallProc(picolInterp *i, int argc, char **argv, void *pd)
 {
-    char          **x = pd, *alist = x[0], *body = x[1], *p = strdup(alist), *tofree;
+    char          **x = pd, *alist = x[0], *body = x[1], *p = _strdup(alist), *tofree;
     picolCallFrame *cf    = malloc(sizeof(picolCallFrame));
     int             arity = 0, done = 0, errcode = PICOL_OK;
     char            errbuf[1024];
     cf->vars     = NULL;
     cf->parent   = i->callframe;
-    cf->command  = strdup(argv[0]); // Set the currently executing command
+    cf->command  = _strdup(argv[0]); // Set the currently executing command
     i->callframe = cf;
     tofree       = p;
     while (1) {
@@ -816,8 +816,8 @@ int picolCommandProc(picolInterp *i, int argc, char **argv, void *pd)
         return picolArityErr(i, argv[0]);
     }
 
-    procdata[0] = strdup(argv[2]); /* Arguments list. */
-    procdata[1] = strdup(argv[3]); /* Procedure body. */
+    procdata[0] = _strdup(argv[2]); /* Arguments list. */
+    procdata[1] = _strdup(argv[3]); /* Procedure body. */
     if (procdata[0] == NULL || procdata[1] == NULL)
         goto oom;
     int regResult = picolRegisterCommand(i, argv[1], picolCommandCallProc, procdata);

@@ -267,7 +267,7 @@ int tinyaiAddToken(TinyAITokenizer *tokenizer, const char *token, uint32_t frequ
     
     /* Add new token */
     int id = tokenizer->tokenCount++;
-    tokenizer->tokens[id] = strdup(token);
+    tokenizer->tokens[id] = _strdup(token);
     if (!tokenizer->tokens[id]) {
         tokenizer->tokenCount--;
         return -1;
@@ -376,7 +376,7 @@ static int tokenizeWord(const TinyAITokenizer *tokenizer, const char *word,
                 TINYAI_FREE(chars[i]);
                 TINYAI_FREE(chars[i+1]);
                 
-                chars[i] = strdup(merged);
+                chars[i] = _strdup(merged);
                 
                 /* Shift the remaining characters */
                 for (int j = i + 1; j < numChars - 1; j++) {
@@ -588,7 +588,7 @@ int tinyaiCreateMinimalVocabulary(TinyAITokenizer *tokenizer,
                 
                 /* Add new word */
                 if (!found && wordCount < 10000) {
-                    words[wordCount].word = strdup(word);
+                    words[wordCount].word = _strdup(word);
                     words[wordCount].count = 1;
                     wordCount++;
                 }
@@ -612,7 +612,7 @@ int tinyaiCreateMinimalVocabulary(TinyAITokenizer *tokenizer,
                 
                 /* Add new token */
                 if (!found && wordCount < 10000) {
-                    words[wordCount].word = strdup(separator);
+                    words[wordCount].word = _strdup(separator);
                     words[wordCount].count = 1;
                     wordCount++;
                 }
@@ -638,7 +638,7 @@ int tinyaiCreateMinimalVocabulary(TinyAITokenizer *tokenizer,
         
         /* Add new word */
         if (!found && wordCount < 10000) {
-            words[wordCount].word = strdup(word);
+            words[wordCount].word = _strdup(word);
             words[wordCount].count = 1;
             wordCount++;
         }

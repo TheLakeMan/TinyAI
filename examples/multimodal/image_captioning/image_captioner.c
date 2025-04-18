@@ -62,7 +62,7 @@ TinyAIImageCaptioner *tinyaiImageCaptionerCreate(const TinyAIImageCaptionerConfi
 
     /* Set custom prompt if provided */
     if (config->customPrompt) {
-        captioner->customPrompt = strdup(config->customPrompt);
+        captioner->customPrompt = _strdup(config->customPrompt);
     }
 
     /* Load tokenizer */
@@ -229,7 +229,7 @@ bool tinyaiImageCaptionerSetStyle(TinyAIImageCaptioner *captioner, TinyAICaption
 
         /* Set new custom prompt */
         if (customPrompt) {
-            captioner->customPrompt = strdup(customPrompt);
+            captioner->customPrompt = _strdup(customPrompt);
             if (!captioner->customPrompt) {
                 fprintf(stderr, "Failed to allocate memory for custom prompt\n");
                 return false;

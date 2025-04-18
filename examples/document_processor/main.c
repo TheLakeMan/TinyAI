@@ -100,7 +100,7 @@ char **load_classes(const char *filepath, int *num_classes)
         }
 
         /* Allocate and copy class label */
-        classes[i] = strdup(buffer);
+        classes[i] = _strdup(buffer);
         if (!classes[i]) {
             fprintf(stderr, "Error: Memory allocation failed for class label\n");
             for (int j = 0; j < i; j++) {

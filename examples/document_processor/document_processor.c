@@ -92,7 +92,7 @@ TinyAIDocumentProcessor *tinyaiDocumentProcessorCreate(const TinyAIDocumentProce
         /* Copy class labels */
         for (int i = 0; i < config->numClasses; i++) {
             if (config->classLabels[i]) {
-                processor->classLabels[i] = strdup(config->classLabels[i]);
+                processor->classLabels[i] = _strdup(config->classLabels[i]);
                 if (!processor->classLabels[i]) {
                     fprintf(stderr, "Failed to allocate class label %d\n", i);
                     for (int j = 0; j < i; j++) {

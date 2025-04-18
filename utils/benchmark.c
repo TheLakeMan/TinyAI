@@ -477,7 +477,7 @@ TinyAISimdBenchmarkResult benchmarkActivation(int size, int activationType, int 
     snprintf(nameBuf, sizeof(nameBuf), "%s Activation",
              (activationType >= 0 && activationType <= 2) ? actNames[activationType] : "Unknown");
 
-    result.operationName = strdup(nameBuf);
+    result.operationName = _strdup(nameBuf);
     result.type          = TINYAI_BENCHMARK_ACTIVATION;
 
     /* Store dimensions */

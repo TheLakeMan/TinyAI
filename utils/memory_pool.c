@@ -114,26 +114,38 @@ static MemoryRegion *createMemoryRegion(size_t size)
     return region;
 }
 
-/* Find a free block of sufficient size */
+/* Find a free block of sufficient size using best-fit */
 static MemoryBlock *findFreeBlock(TinyAIMemoryPool *pool, size_t size, size_t alignment)
 {
     MemoryBlock *block = pool->blocks;
+    MemoryBlock *bestFitBlock = NULL;
+    size_t minSuitableSize = (size_t)-1; // Initialize with maximum possible size
 
     while (block) {
         if (block->isFree) {
-            /* Check if this block is big enough */
+            /* Calculate the actual starting address after alignment */
             void *alignedAddr = (void *)ALIGN_UP(
                 (uintptr_t)((char *)block->address + sizeof(MemoryBlock)), alignment);
-            size_t availableSize = block->size - ((char *)alignedAddr - (char *)block->address);
+            /* Calculate the total size needed within this block (header + alignment padding + user size) */
+            /* Note: The requested 'size' already includes the header size in the calling function tinyaiMemoryPoolAlloc */
+            /* We just need to ensure the block->size can accommodate the aligned start + requested size */
+            size_t requiredBlockSize = ((char *)alignedAddr - (char *)block->address) + size;
 
-            if (availableSize >= size) {
-                return block;
+
+            /* Check if this block is big enough */
+            if (block->size >= requiredBlockSize) {
+                /* Check if this block is a better fit than the current best */
+                /* A better fit is a block that is large enough, but smaller than the previous best fit */
+                if (block->size < minSuitableSize) {
+                    minSuitableSize = block->size;
+                    bestFitBlock = block;
+                }
             }
         }
         block = block->next;
     }
 
-    return NULL;
+    return bestFitBlock;
 }
 
 /* Split a block if possible */

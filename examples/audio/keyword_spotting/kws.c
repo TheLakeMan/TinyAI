@@ -182,7 +182,7 @@ static bool addKeywordToModel(TinyAIKWSModel *model, const char *keyword, int ke
     }
 
     /* Allocate and copy new keyword */
-    model->keywords[keywordIndex] = strdup(keyword);
+    model->keywords[keywordIndex] = _strdup(keyword);
     if (!model->keywords[keywordIndex]) {
         return false;
     }

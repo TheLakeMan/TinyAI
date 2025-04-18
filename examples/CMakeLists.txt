@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 # Option to build examples
-option(BUILD_EXAMPLES "Build TinyAI example applications" OFF)
+option(BUILD_EXAMPLES "Build TinyAI example applications" ON)
 
 if(BUILD_EXAMPLES)
     message(STATUS "Building TinyAI examples")
@@ -21,5 +21,5 @@ if(BUILD_EXAMPLES)
         PATTERN "*.md" EXCLUDE
     )
 else()
-    message(STATUS "TinyAI examples will not be built (BUILD_EXAMPLES is OFF)")
+    message(STATUS "TinyAI examples will not be built (BUILD_EXAMPLES is ON)")
 endif()

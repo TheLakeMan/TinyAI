@@ -30,18 +30,18 @@ static float calculateQuantError(float real, float quantized)
 }
 
 /* Calculate step size for a given precision */
-static float calculateStepSize(TinyAIPrecisionType precision)
+static float calculateStepSize(TinyAIMixedPrecType precision)
 {
     switch (precision) {
-    case TINYAI_PRECISION_FP32:
+    case TINYAI_MIXED_PREC_FP32:
         return 0.0f; /* No quantization */
-    case TINYAI_PRECISION_FP16:
+    case TINYAI_MIXED_PREC_FP16:
         return 1.0f / 1024.0f; /* Approximate for FP16 */
-    case TINYAI_PRECISION_INT8:
+    case TINYAI_MIXED_PREC_INT8:
         return 1.0f / 127.0f;
-    case TINYAI_PRECISION_INT4:
+    case TINYAI_MIXED_PREC_INT4:
         return 1.0f / 7.0f;
-    case TINYAI_PRECISION_INT2:
+    case TINYAI_MIXED_PREC_INT2:
         return 1.0f / 1.0f;
     default:
         return 0.0f;
@@ -102,7 +102,7 @@ bool tinyaiTrainWithQuantAwareness(const char *modelPath, const char *outputMode
 }
 
 float tinyaiStraightThroughEstimator(float realValue, float quantizedValue,
-                                     TinyAIPrecisionType precision)
+                                     TinyAIMixedPrecType precision)
 {
     /* Implements the straight-through estimator (STE) for backpropagation through
      * non-differentiable quantization operations.
@@ -123,7 +123,7 @@ float tinyaiStraightThroughEstimator(float realValue, float quantizedValue,
     }
 }
 
-bool tinyaiSimulateQuantizationNoise(float *weights, int numElements, TinyAIPrecisionType precision,
+bool tinyaiSimulateQuantizationNoise(float *weights, int numElements, TinyAIMixedPrecType precision,
                                      float strength)
 {
     /* Add controlled noise to simulate quantization effects during training */
@@ -144,7 +144,7 @@ bool tinyaiSimulateQuantizationNoise(float *weights, int numElements, TinyAIPrec
     return true;
 }
 
-bool tinyaiQuantizeForForwardPass(float *weights, int numElements, TinyAIPrecisionType precision,
+bool tinyaiQuantizeForForwardPass(float *weights, int numElements, TinyAIMixedPrecType precision,
                                   float *outQuantized)
 {
     /* Simulate quantization during the forward pass */
@@ -153,7 +153,7 @@ bool tinyaiQuantizeForForwardPass(float *weights, int numElements, TinyAIPrecisi
     }
 
     /* For high precision, just copy the weights */
-    if (precision == TINYAI_PRECISION_FP32) {
+    if (precision == TINYAI_MIXED_PREC_FP32) {
         memcpy(outQuantized, weights, numElements * sizeof(float));
         return true;
     }
@@ -161,19 +161,19 @@ bool tinyaiQuantizeForForwardPass(float *weights, int numElements, TinyAIPrecisi
     /* Get quantization parameters for the precision */
     float min, max;
     switch (precision) {
-    case TINYAI_PRECISION_FP16:
+    case TINYAI_MIXED_PREC_FP16:
         min = -65504.0f;
         max = 65504.0f;
         break;
-    case TINYAI_PRECISION_INT8:
+    case TINYAI_MIXED_PREC_INT8:
         min = -128.0f;
         max = 127.0f;
         break;
-    case TINYAI_PRECISION_INT4:
+    case TINYAI_MIXED_PREC_INT4:
         min = -8.0f;
         max = 7.0f;
         break;
-    case TINYAI_PRECISION_INT2:
+    case TINYAI_MIXED_PREC_INT2:
         min = -2.0f;
         max = 1.0f;
         break;
@@ -250,8 +250,8 @@ TinyAIQuantAwareTrainingConfig *tinyaiCreateDefaultQuantAwareTrainingConfig(void
     }
 
     /* Initialize with reasonable default values */
-    config->weightPrecision                = TINYAI_PRECISION_INT8;
-    config->activationPrecision            = TINYAI_PRECISION_INT8;
+    config->weightPrecision                = TINYAI_MIXED_PREC_INT8;
+    config->activationPrecision            = TINYAI_MIXED_PREC_INT8;
     config->useSymmetricQuantization       = true;
     config->usePerChannelQuantization      = true;
     config->learningRate                   = 1e-4f;

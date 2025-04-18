@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TinyAI - Web Interface</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header>
+        <h1>TinyAI</h1>
+        <p class="subtitle">Ultra-lightweight AI Model</p>
+    </header>
+
+    <main>
+        <div class="container">
+            <div class="prompt-section">
+                <h2>Enter Prompt</h2>
+                <div class="input-container">
+                    <textarea id="prompt-input" placeholder="Enter your prompt here..."></textarea>
+                    <div class="controls">
+                        <button id="generate-btn" class="primary-btn">Generate</button>
+                        <button id="clear-btn" class="secondary-btn">Clear</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="result-section">
+                <h2>Generated Result</h2>
+                <div id="result-container">
+                    <p id="initial-message">Generated text will appear here.</p>
+                    <div id="result-text"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 TinyAI Contributors</p>
+        <p class="version">v0.1.0</p>
+    </footer>
+
+    <div id="loading-overlay" class="hidden">
+        <div class="spinner"></div>
+        <p>Generating...</p>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

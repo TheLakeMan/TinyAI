@@ -115,14 +115,14 @@ static bool initModalityEncoder(ModalityEncoder *encoder, TinyAIModalityConfig *
         encoder->config.text.embedDim  = config->config.text.embedDim;
 
         /* For text, we need embeddings and projection */
-        size_t embedSize = (size_t)config->config.text.maxTokens * config->config.text.embedDim;
-        size_t projSize  = (size_t)config->config.text.embedDim * outputDim;
+        size_t embedSize    = (size_t)config->config.text.maxTokens * config->config.text.embedDim;
+        size_t textProjSize = (size_t)config->config.text.embedDim * outputDim;
 
         if (useQuantization) {
-            encoder->weightBytes = ((embedSize + projSize) + 1) / 2; /* 4-bit quantization */
+            encoder->weightBytes = ((embedSize + textProjSize) + 1) / 2; /* 4-bit quantization */
         }
         else {
-            encoder->weightBytes = (embedSize + projSize) * sizeof(float);
+            encoder->weightBytes = (embedSize + textProjSize) * sizeof(float);
         }
 
         encoder->biasBytes   = outputDim * sizeof(float);
@@ -140,14 +140,14 @@ static bool initModalityEncoder(ModalityEncoder *encoder, TinyAIModalityConfig *
 
         /* For image, we need CNN and projection */
         /* This is a simplified approximation */
-        size_t cnnSize  = (size_t)encoder->inputDim * 64; /* Simplified CNN */
-        size_t projSize = (size_t)64 * outputDim;         /* Projection */
+        size_t cnnSize       = (size_t)encoder->inputDim * 64; /* Simplified CNN */
+        size_t imageProjSize = (size_t)64 * outputDim;         /* Projection */
 
         if (useQuantization) {
-            encoder->weightBytes = ((cnnSize + projSize) + 1) / 2; /* 4-bit quantization */
+            encoder->weightBytes = ((cnnSize + imageProjSize) + 1) / 2; /* 4-bit quantization */
         }
         else {
-            encoder->weightBytes = (cnnSize + projSize) * sizeof(float);
+            encoder->weightBytes = (cnnSize + imageProjSize) * sizeof(float);
         }
 
         encoder->biasBytes   = (64 + outputDim) * sizeof(float);
@@ -163,14 +163,14 @@ static bool initModalityEncoder(ModalityEncoder *encoder, TinyAIModalityConfig *
 
         /* For audio, we need feature extraction and projection */
         /* This is a simplified approximation */
-        size_t featureSize = (size_t)encoder->inputDim * 64; /* Simplified features */
-        size_t projSize    = (size_t)64 * outputDim;         /* Projection */
+        size_t featureSize   = (size_t)encoder->inputDim * 64; /* Simplified features */
+        size_t audioProjSize = (size_t)64 * outputDim;         /* Projection */
 
         if (useQuantization) {
-            encoder->weightBytes = ((featureSize + projSize) + 1) / 2; /* 4-bit quantization */
+            encoder->weightBytes = ((featureSize + audioProjSize) + 1) / 2; /* 4-bit quantization */
         }
         else {
-            encoder->weightBytes = (featureSize + projSize) * sizeof(float);
+            encoder->weightBytes = (featureSize + audioProjSize) * sizeof(float);
         }
 
         encoder->biasBytes   = (64 + outputDim) * sizeof(float);

@@ -1,64 +1,46 @@
-# TinyAI Framework Documentation
+# TinyAI Documentation
 
-## Overview
+Welcome to the TinyAI documentation. This guide will help you understand and use the TinyAI framework effectively.
 
-TinyAI is an ultra-lightweight AI framework designed to run on minimal hardware, using 4-bit quantization for neural network weights. This documentation provides comprehensive information about using and extending the framework.
+## Getting Started
+- [Installation Guide](getting-started/installation.md)
+- [Quick Start Guide](getting-started/quickstart.md)
+- [Basic Usage](getting-started/basic-usage.md)
 
-## Documentation Sections
+## API Reference
+- [Core API](api/core.md)
+- [Models API](api/models.md)
+- [Memory Management](api/memory.md)
+- [Performance Tools](api/performance.md)
 
-### API Reference
+## User Guides
+- [Optimization Guide](guides/optimization.md)
+- [Memory Management Guide](guides/memory-management.md)
+- [Performance Tuning](guides/performance-tuning.md)
+- [Debugging and Troubleshooting](guides/debugging.md)
 
-- [Core API](api/core.md) - Core components and utilities
-- [Text Model API](api/text_models.md) - Text generation and processing
-- [Image Model API](api/image_models.md) - Image recognition and processing
-- [Audio Model API](api/audio_models.md) - Audio processing and recognition
-- [Multimodal API](api/multimodal.md) - Combining different modalities
-- [Optimization API](api/optimization.md) - Memory and performance optimization
+## Examples
+- [Text Generation](examples/text-generation.md)
+- [Image Processing](examples/image-processing.md)
+- [Multimodal Applications](examples/multimodal.md)
 
-### User Guides
+## Development
+- [Contributing Guide](development/contributing.md)
+- [Architecture Overview](development/architecture.md)
+- [Testing Guide](development/testing.md)
 
-- [Getting Started](guides/getting_started.md) - First steps with TinyAI
-- [Installation](guides/installation.md) - Installation instructions for different platforms
-- [Basic Usage](guides/basic_usage.md) - Common usage patterns
-- [Text Generation](guides/text_generation.md) - Guide for text generation
-- [Image Recognition](guides/image_recognition.md) - Guide for image recognition
-- [Audio Processing](guides/audio_processing.md) - Guide for audio processing
-- [Memory Optimization](guides/memory_optimization.md) - Optimizing memory usage
-- [Performance Tuning](guides/performance_tuning.md) - Optimizing performance
+## Additional Resources
+- [Project Progress](../PROJECT_PROGRESS.md)
+- [Technical Documentation](../TECHNICAL_DOCUMENTATION.md)
+- [GitHub Repository](https://github.com/TheLakeMan/tinyai)
 
-### Example Applications
+## Support
+If you need help or have questions:
+1. Check the [Debugging and Troubleshooting Guide](guides/debugging.md)
+2. Search through [Examples](examples/)
+3. Open an issue on GitHub
 
-- [Chatbot Example](examples/chatbot.md) - Memory-constrained chatbot
-- [Image Recognition Example](examples/image_recognition.md) - Image classification
-- [Document Processor Example](examples/document_processor.md) - Text classification and summarization
-- [Media Tagging Example](examples/media_tagging.md) - Multi-modal media tagging
-- [Multimodal Examples](examples/multimodal.md) - Image captioning and visual question answering
-- [Audio Examples](examples/audio.md) - Keyword spotting and speech recognition
-
-### Developer Guides
-
-- [Architecture Overview](dev/architecture.md) - High-level architecture of TinyAI
-- [Contribution Guidelines](dev/contributing.md) - How to contribute to TinyAI
-- [Building from Source](dev/building.md) - Building TinyAI from source
-- [Testing](dev/testing.md) - Testing TinyAI components
-- [Adding New Models](dev/adding_models.md) - How to add new model types
-- [Debugging](dev/debugging.md) - Debugging TinyAI applications
-- [Profiling](dev/profiling.md) - Profiling TinyAI performance
-
-## API Organization
-
-TinyAI's API is organized into several key modules:
-
-1. **Core**: Base functionality including memory management, configuration, and I/O
-2. **Models**: Model implementation for different modalities (text, image, audio, multimodal)
-3. **Utils**: Utilities for optimization, quantization, SIMD operations, etc.
-4. **Interface**: CLI and programmatic interfaces
-
-## Key Features
-
-- Ultra-lightweight design for embedded and edge devices
-- 4-bit quantization with advanced techniques like pruning and mixed precision
-- SIMD-accelerated operations for optimal performance
-- Support for text, image, audio, and multimodal inputs/outputs
-- Memory mapping and on-demand weight loading for large models
-- Hybrid execution capability with local and remote processing
+## Version Information
+- Current Version: 0.1.0
+- Last Updated: April 2025
+- Supported Platforms: Windows 95+, Linux, macOS
